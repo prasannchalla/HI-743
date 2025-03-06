@@ -162,6 +162,17 @@ missing_values <- SMOKERS %>%
 print(missing_values)
 ```
 
+## Handling Missing Data
+
+```{r}
+# Remove rows with missing or non-finite values
+SMOKERS <- SMOKERS %>%
+  filter(!is.na(BMI) & !is.na(Age) & !is.na(SmokeNow) & !is.na(PhysActive))
+
+# Confirm data cleaning
+print(nrow(SMOKERS))  # Remaining rows after cleaning
+```
+
 ## Train - Test Split
 
 ```{r}
@@ -233,7 +244,15 @@ print(paste("Training MSE:", round(train_mse, 2)))
 print(paste("Test MSE:", round(test_mse, 2)))
 ```
 
-### Simple Linear Regression results & interpretation
+### **Simple Linear Regression Results & Interpretation**
+
+-   **Training MSE: 42.98**\
+    The model has an average squared error of 42.98 on the training data, indicating a moderate fit.
+
+-   **Test MSE: 34.98**\
+    The model performs slightly better on the test data with an average squared error of 34.98, suggesting it generalizes well to new, unseen data.
+
+-   **Conclusion**: The model has a reasonable fit with no significant overfitting, as the Training and Test MSEs are close. There's potential for improvement by adding more predictors or using more complex models.
 
 ### Perform Multiple Linear Regression on Training Data
 
@@ -252,3 +271,13 @@ print(paste("Training MSE:", round(train_mse, 2)))
 print(paste("Test MSE:", round(test_mse, 2)))
 
 ```
+
+### **Multiple Linear Regression Results & Interpretation**
+
+-   **Training MSE: 41.57**\
+    The model has an average squared error of 41.57 on the training data, indicating a decent fit, but there's still room for improvement.
+
+-   **Test MSE: 33.69**\
+    The model performs slightly better on the test data with an average squared error of 33.69, suggesting good generalization to unseen data.
+
+-   **Conclusion**: The **Multiple Linear Regression** model provides a better fit compared to the **Simple Linear Regression**, as the **Test MSE** is lower. The model is not overfitting, and it seems to generalize well. However, further improvements could be made by considering additional predictor variables or more advanced techniques.
