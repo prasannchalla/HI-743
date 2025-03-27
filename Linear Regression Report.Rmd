@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 
-install.packages("ISLR2")
+#install.packages("ISLR2")
 library(ISLR2)
 ```
 
@@ -134,13 +134,45 @@ print(paste("Test MSE:", round(test_mse, 2)))
 
 ## NHANES Data Analysis
 
-## Objective
+## 1. Objective
 
-please predict BMI using Age, SmokeNow, PhysActive for induviduals between the ages of 18 and 70
+This analysis aims to predict **BMI** using **Age, Smoking Status (SmokeNow), and Physical Activity (PhysActive)** for individuals aged **18-70**.
 
-## Data understanding & Preparation
+### **1.1 What Are We Analyzing?**
 
-## Data loading
+We are examining how age, smoking habits, and physical activity influence BMI. Since BMI is a key health indicator, understanding these relationships can help identify factors contributing to weight changes and overall health risks.
+
+### **1.2 Why Are We Conducting This Analysis?**
+
+High BMI is linked to health conditions like **diabetes, heart disease, and hypertension**. Smoking affects metabolism and appetite, while physical activity plays a role in weight management. By analyzing these factors, we can gain insights into how lifestyle choices impact BMI and overall health.
+
+### **1.3 What Insights Can We Gain?**
+
+This study explores **how BMI changes with age, whether smokers have different BMI trends, and how physical activity influences weight**. The findings can support **personalized health recommendations** and inform **public health policies** for better weight management and disease prevention.
+
+## 2. Data understanding & Preparation
+
+### **2.1 Variables in the Dataset:**
+
+-   **BMI** (Continuous) – Body Mass Index, the target variable.
+
+-   **Age** (Continuous) – Age of individuals (18-70).
+
+-   **SmokeNow** (Categorical) – Smoking status (Yes/No).
+
+-   **PhysActive** (Categorical) – Physical activity level (Yes/No).
+
+### **2.2 Key Questions We Can Answer:**
+
+-   How does BMI change with age?
+
+-   Do smokers tend to have higher or lower BMI?
+
+-   What is the relationship between physical activity and BMI?
+
+## 3. Data loading
+
+The dataset is loaded from the **NHANES** package, containing health-related variables. A summary of the selected data (BMI, Age, SmokeNow, PhysActive) provides insights into its distribution, missing values, and overall trends. It helps identify potential data issues, such as outliers or gaps, ensuring the dataset is clean and suitable for analysis.
 
 ```{r}
 #install.packages("NHANES")
@@ -152,7 +184,7 @@ SMOKERS = NHANES %>%
   filter(Age >= 18 & Age <= 70)
 ```
 
-## Data Exploration
+## 4. Data Exploration
 
 ```{r}
 # Check for missing values in the selected data
@@ -162,7 +194,9 @@ missing_values <- SMOKERS %>%
 print(missing_values)
 ```
 
-## Handling Missing Data
+## 5. Handling Missing Data
+
+We handle missing data to avoid bias, loss of information, and poor model performance, ensuring accurate and reliable analysis.
 
 ```{r}
 # Remove rows with missing or non-finite values
@@ -173,7 +207,9 @@ SMOKERS <- SMOKERS %>%
 print(nrow(SMOKERS))  # Remaining rows after cleaning
 ```
 
-## Train - Test Split
+## 6. Train - Test Split
+
+Splitting the data into **training (75%) and testing (25%) sets** helps evaluate the model's performance on unseen data. The training set is used to build the model, while the test set assesses its ability to generalize. This technique prevents **overfitting**, ensuring the model performs well on new data rather than just memorizing patterns from the training set.
 
 ```{r}
 # Set seed for reproducibility
@@ -191,7 +227,9 @@ test_data <- anti_join(SMOKERS, SMOKERS_split, by = "id")  # Join using 'id' col
 train_data <- SMOKERS_split
 ```
 
-## Exploratory Data Analysis
+## 7. Exploratory Data Analysis
+
+In EDA, we use visualizations like histograms, box plots, and scatter plots to assess data distribution, relationships, and patterns, guiding analysis decisions.
 
 ```{r}
 # Plot the distribution of BMI
@@ -202,7 +240,7 @@ ggplot(SMOKERS, aes(x = BMI)) +
   labs(title = "Distribution of BMI", x = "BMI", y = "Count")
 ```
 
-## Scatterplot: Age vs. BMI
+## 7.1 Scatterplot: Age vs. BMI
 
 This helps in visualizing the relationship between **Age** and **BMI**.
 
@@ -213,7 +251,9 @@ ggplot(SMOKERS, aes(x = Age, y = BMI)) +
   labs(title = "Scatterplot: Age vs. BMI", x = "Age", y = "BMI")
 ```
 
-## Scatterplot: SmokeNow vs. BMI
+## 7.2 Scatterplot: SmokeNow vs. BMI
+
+A scatterplot of SmokeNow vs. BMI visualizes the relationship between smoking status and body mass index, helping identify any patterns or correlations.
 
 ```{r}
 # Scatterplot: SmokeNow vs. BMI
@@ -224,7 +264,11 @@ ggplot(SMOKERS, aes(x = SmokeNow, y = BMI)) +
 
 ## Model Implementation
 
+We use **Simple Linear Regression** because it effectively predicts a continuous target based on a linear relationship with a single feature, offering simplicity and speed but being sensitive to outliers and limited by the assumption of linearity.
+
 ### Perform simple Linear Regression on Training Data
+
+In simple linear regression, the model fits a line by minimizing squared errors, with evaluation metrics like **Mean Squared Error (MSE)**, which measures prediction accuracy, and **R-squared (**R2R2), which indicates how well the model explains the variance in the data.
 
 ```{r}
 #Fit a Simple Linear Regression Model ---
