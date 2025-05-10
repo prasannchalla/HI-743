@@ -1,0 +1,353 @@
+---
+title: '"Obesity Analysis Using BRFSS Data"'
+author: "LAKSHMI PRSANNA CHALLA"
+date: "2025-05-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library("tidyverse")
+library("caret")
+library("randomForest")
+library("pROC")
+library("e1071")
+library("rpart")
+library("modeest")
+```
+
+# **1. Introduction**
+
+Obesity has become a significant public health issue globally, affecting millions of individuals and leading to numerous chronic health conditions such as heart disease, diabetes, stroke, and certain types of cancer. In the United States, obesity rates have steadily increased over the past few decades, with various socio-economic, behavioral, and environmental factors contributing to the rise in obesity prevalence. According to the Centers for Disease Control and Prevention (CDC), nearly 40% of adults in the U.S. are considered obese, and this figure has significant implications for public health, healthcare systems, and overall well-being.
+
+In Lake County, Illinois, as well as at the national level, obesity remains a major concern due to its impact on health outcomes, healthcare costs, and quality of life. Factors such as income, education level, physical activity, and access to healthy food options can influence obesity rates, which are why understanding these relationships is vital for implementing effective health interventions.
+
+The purpose of developing a prediction model for obesity rates is to identify key factors that contribute to obesity and to predict its prevalence in specific populations. By accurately predicting obesity rates, public health organizations can allocate resources more efficiently, design targeted interventions, and implement preventative measures. This model can serve as a tool for policymakers, health practitioners, and local government agencies in making informed decisions to combat the obesity epidemic and improve overall public health outcomes in Lake County and beyond
+
+# **2. Research Question and Hypotheses**
+
+**Research Question:**\
+Can demographic, socioeconomic, and health-related factors accurately predict obesity rates in Lake County, Illinois, and at the national level?
+
+Obesity is influenced by a range of factors, including age, gender, income, education, physical activity levels, and access to healthcare. Understanding these relationships and how they contribute to obesity prevalence is key to developing targeted interventions for at-risk populations.
+
+**Hypotheses:**
+
+-   **Hypothesis 1:** Higher income levels are associated with lower obesity rates. Individuals with higher incomes are more likely to have access to healthier food options, engage in regular physical activity, and afford healthcare services that promote better overall health. Therefore, we expect that as income increases, the likelihood of obesity decreases.
+
+-   **Hypothesis 2:** Education level is inversely related to obesity rates. People with higher education levels are often more informed about the health risks associated with obesity and are more likely to make healthier lifestyle choices. Thus, we hypothesize that individuals with higher education levels will have lower obesity rates compared to those with lower levels of education.
+
+# **3. Data Overview**
+
+The dataset being used for this analysis is the **LakeCounty_Health.csv** dataset, which contains public health data related to various factors affecting the population of Lake County, Illinois, specifically focusing on obesity rates and associated demographic and socioeconomic variables. This dataset is sourced from the **Behavioral Risk Factor Surveillance System (BRFSS)**, a national health survey that collects data on health-related risk behaviors, chronic health conditions, and the use of preventive services. The BRFSS is conducted by the Centers for Disease Control and Prevention (CDC), providing valuable information for public health research and intervention planning.
+
+## 3.1 Load the Data
+
+```{r}
+# Load necessary library for reading CSV
+library(readr)
+
+# Load the data
+lakecounty_health_data <- read_csv("/Users/lakshmiprasannachalla/Desktop/LakeCounty_Health.csv")
+
+# Preview the data structure
+glimpse(lakecounty_health_data)
+```
+
+# **4. Data Preprocessing**
+
+## 4.1 **Handling Missing Values**
+
+Before analyzing the data, we need to check and handle any missing values. If there are any missing values in the dataset, you can decide whether to remove or impute them.
+
+```{r}
+# 4.1 Handling Missing Values
+# Check for missing values in the dataset
+sum(is.na(lakecounty_health_data))
+
+# Remove rows with missing values
+lakecounty_health_data <- na.omit(lakecounty_health_data)
+
+# Alternatively, if there are missing values in specific columns, you can impute them.
+# Example: Impute missing obesity data with the column's mean or median
+lakecounty_health_data$Obesity[is.na(lakecounty_health_data$Obesity)] <- mean(lakecounty_health_data$Obesity, na.rm = TRUE)
+
+# Verify if the missing values are imputed
+sum(is.na(lakecounty_health_data$Obesity))  # Should return 0
+```
+
+## 4.2 Data Summary
+
+```{r}
+# View summary statistics of the dataset to get a sense of distribution and any remaining issues
+summary(lakecounty_health_data)
+
+# View the structure of the dataset (optional but useful)
+str(lakecounty_health_data)
+```
+
+## **4.3 Create a Binary Target Variable for Obesity**:
+
+If your goal is to classify states as either "obese" or "not obese," you can create a binary target variable based on the **Obesity** column. For example, let's classify as "Obese" if the obesity rate is higher than 30%.
+
+```{r}
+# Create a binary target variable based on the Obesity column. States with obesity rates > 30% are considered obese (1), otherwise not (0).
+lakecounty_health_data$Obesity_Status <- ifelse(lakecounty_health_data$Obesity > 30, 1, 0)
+
+# Check the distribution of the new target variable
+table(lakecounty_health_data$Obesity_Status)
+```
+
+## 4.4 Splitting the Data
+
+```{r}
+# Split the data into training and testing datasets (80% training, 20% testing)
+set.seed(123)  # Set a seed for reproducibility
+trainIndex <- createDataPartition(lakecounty_health_data$Obesity_Status, p = 0.8, list = FALSE)
+trainData <- lakecounty_health_data[trainIndex, ]
+testData <- lakecounty_health_data[-trainIndex, ]
+
+# Check the dimensions of the training and testing sets
+dim(trainData)
+dim(testData)
+```
+
+# 5. Visualization of Data
+
+This section provides graphical representations to help understand patterns, distributions, and relationships within the dataset. Visualization is crucial for exploring the data and validating model assumptions.
+
+### **5.1 Distribution of Obesity Status**
+
+This bar chart shows how many states fall into the "Obese" (Obesity rate \> 30%) and "Not Obese" categories.
+
+```{r}
+# Load necessary library
+library(ggplot2)
+
+# 5.1 Bar plot for Obesity Status
+ggplot(lakecounty_health_data, aes(x = factor(Obesity_Status))) +
+  geom_bar(fill = c("lightgreen", "salmon")) +
+  labs(title = "Distribution of Obesity Status by State",
+       x = "Obesity Status (0 = Not Obese, 1 = Obese)",
+       y = "Number of States") +
+  theme_minimal()
+```
+
+### **5.2 Obesity Rate by State**
+
+A horizontal bar chart of obesity rates across all U.S. states. This makes it easier to compare states visually.
+
+```{r}
+# 5.2 Obesity Rate by State
+ggplot(lakecounty_health_data, aes(x = reorder(NAME, Obesity), y = Obesity, fill = Obesity)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_gradient(low = "lightblue", high = "darkred") +
+  labs(title = "Obesity Rate (%) by State",
+       x = "State",
+       y = "Obesity Rate (%)") +
+  theme_minimal()
+```
+
+### **5.3 Obesity vs Shape Area**
+
+A scatter plot showing the relationship between geographic area and obesity rate. The red line represents a linear trend.
+
+```{r}
+# 5.3 Obesity vs Shape Area
+ggplot(lakecounty_health_data, aes(x = Shape__Area, y = Obesity)) +
+  geom_point(color = "dodgerblue", size = 3) +
+  geom_smooth(method = "lm", color = "firebrick") +
+  labs(title = "Relationship Between Shape Area and Obesity Rate",
+       x = "Geographical Area (Shape__Area)",
+       y = "Obesity Rate (%)") +
+  theme_minimal()
+```
+
+### **5.4 Obesity vs Shape Length**
+
+This scatter plot shows how the perimeter or boundary length of the state (Shape\_\_Length) might relate to obesity levels.
+
+```{r}
+# 5.4 Obesity vs Shape Length
+ggplot(lakecounty_health_data, aes(x = Shape__Length, y = Obesity)) +
+  geom_point(color = "purple", size = 3) +
+  geom_smooth(method = "lm", color = "orange") +
+  labs(title = "Relationship Between Shape Length and Obesity Rate",
+       x = "Geographical Perimeter (Shape__Length)",
+       y = "Obesity Rate (%)") +
+  theme_minimal()
+```
+
+# **6. Methodology**
+
+This section explains the rationale behind choosing the machine learning models and the steps taken to train and evaluate them. Two models were selected based on their complementary strengths: **Support Vector Machine (SVM)** and **Decision Tree**.
+
+## **6.1 Model Selection Rationale**
+
+### **6.1.1 Support Vector Machine (SVM)**:
+
+-   **Rationale**: SVM is a powerful machine learning model known for its ability to handle complex, non-linear relationships in the data. Since our dataset includes features like **Obesity**, **Shape\_\_Area**, and **Shape\_\_Length**, which may have intricate interactions, SVM is a natural choice. By utilizing the **Radial Basis Function (RBF)** kernel, SVM can efficiently map the data into higher-dimensional space, enabling it to find complex decision boundaries. This makes SVM an excellent tool for binary classification tasks like predicting **Obesity_Status**.
+
+-   **Use Case**: SVM works well in high-dimensional spaces and is ideal when there is a clear margin of separation between the two classes (Obese vs. Not Obese). This model is especially useful when the dataset is non-linear, which makes SVM suitable for problems where linear models like logistic regression might fall short.
+
+### **6.1.2 Decision Tree**:
+
+-   **Rationale**: Decision trees are simple yet powerful models that partition the data into subsets based on feature values, resulting in a tree-like structure. The algorithm makes a series of decisions by asking a sequence of questions about the features (such as **Obesity**, **Shape\_\_Area**, **Shape\_\_Length**) until a decision (prediction) is made. Decision trees are interpretable, easy to visualize, and do not require scaling of features.
+
+-   **Use Case**: Decision trees are particularly well-suited for data where the relationships between features and the target are hierarchical or recursive. In this case, a decision tree can identify complex decision rules that separate **Obese** from **Not Obese** based on thresholds of different variables. Furthermore, decision trees can handle both numerical and categorical data without requiring transformations, making them very versatile.
+
+# **7. Support Vector Machine (SVM)**
+
+## **7.1 Load Necessary Libraries**
+
+```{r}
+# Load the required package
+library(e1071)
+```
+
+## 7.2 **Fit a SVM Model**
+
+```{r}
+# Fit an SVM model
+svm_model <- svm(Obesity_Status ~ Obesity + Shape__Area + Shape__Length, 
+                 data = trainData, 
+                 kernel = "radial",  # RBF kernel
+                 cost = 10, 
+                 scale = TRUE)
+```
+
+## 7.3 **Make Predictions**
+
+```{r}
+# Make predictions
+svm_predictions <- predict(svm_model, newdata = testData)
+```
+
+## 7.4 **Evaluate the Model**
+
+```{r}
+# Evaluate the performance
+confusionMatrix(svm_predictions, testData$Obesity_Status)
+```
+
+## 7.5 Interpretation of Confusion Matrix for the Support Vector Machine (SVM) Model
+
+The confusion matrix provides important information on the model's performance, especially in terms of its ability to classify the "Obese" (1) and "Not Obese" (0) classes. Let’s break down the confusion matrix and key performance metrics:
+
+**Confusion Matrix**
+
+| **Predicted**            | **0 (Not Obese)**       | **1 (Obese)**           |
+|-------------------------|------------------------|------------------------|
+| **Actual 0 (Not Obese)** | 6 (True Negatives, TN)  | 2 (False Positives, FP) |
+| **Actual 1 (Obese)**     | 0 (False Negatives, FN) | 2 (True Positives, TP)  |
+
+1.  **Accuracy**:
+
+    **Accuracy = (TP + TN) / (TP + TN + FP + FN)**
+
+    **Accuracy = (2 + 6) / (2 + 6 + 2 + 0) = 0.8**
+
+    This means the model correctly classified 80% of the observations (both "Obese" and "Not Obese" categories).
+
+2.  **Sensitivity (Recall)**:
+
+    **Sensitivity = TP / (TP + FN)**
+
+    **Sensitivity = 2 / (2 + 0) = 1.00**
+
+    Sensitivity is 100%, meaning the model identified all true "Obese" cases (no false negatives).
+
+## **7.6 Conclusion:**
+
+-   **Strengths**: The model shows perfect sensitivity (1.00), which means it does an excellent job of identifying people who are "Obese" (True Positives). Additionally, it has a perfect Negative Predictive Value (1.00), which means it correctly classifies "Not Obese" individuals.
+
+-   **Weaknesses**: Specificity is relatively low (0.50), meaning the model struggles with correctly identifying "Not Obese" individuals and is prone to false positives. The accuracy of 0.8 is decent but shows room for improvement, especially in classifying the "Not Obese" group.
+
+-   **Overall Performance**: The model is performing well in identifying positive cases (Obese) but needs improvements in distinguishing negative cases (Not Obese). You might consider using techniques like hyperparameter tuning, balancing the dataset, or exploring different kernels for the SVM model to improve specificity.
+
+# 8. **Decision Tree**
+
+## **8.1 Load Necessary Libraries**
+
+```{r}
+# Load the necessary package
+library(rpart)
+library(caret)
+```
+
+## 8.2 **Fit a Decision Tree Model**
+
+```{r}
+# Fit the Decision Tree model
+dt_model <- rpart(Obesity_Status ~ Obesity + Shape__Area + Shape__Length, 
+                  data = trainData, 
+                  method = "class")  # 'class' is for classification problems
+```
+
+## 8.3 **Make Predictions**
+
+```{r}
+# Make predictions on the test data
+dt_predictions <- predict(dt_model, newdata = testData, type = "class")
+```
+
+## 8.4 **Evaluate the Model**
+
+```{r}
+# Evaluate the performance using confusion matrix
+confusionMatrix(dt_predictions, testData$Obesity_Status)
+```
+
+## 8.5 Interpretation of Confusion Matrix for the Support Vector Machine (SVM) Model
+
+The confusion matrix provides important information on the model's performance, especially in terms of its ability to classify the "Obese" (1) and "Not Obese" (0) classes. Let’s break down the confusion matrix and key performance metrics:
+
+**Confusion matrix**
+
+| **Predicted**            | **0 (Not Obese)**       | **1 (Obese)**           |
+|-------------------------|------------------------|------------------------|
+| **Actual 0 (Not Obese)** | 6 (True Negatives, TN)  | 2 (False Positives, FP) |
+| **Actual 1 (Obese)**     | 0 (False Negatives, FN) | 2 (True Positives, TP)  |
+
+**Accuracy**:
+
+**Accuracy = (TP + TN) / (TP + TN + FP + FN)**
+
+**Accuracy = (4 + 6) / (4 + 6 + 0 + 0) = 1.00**
+
+This means the model correctly classified 100% of the observations. The decision tree is highly accurate in both "Obese" and "Not Obese" classifications.
+
+**Sensitivity (Recall)**:
+
+**Sensitivity = TP / (TP + FN)**
+
+**Sensitivity = 4 / (4 + 0) = 1.00**
+
+Sensitivity is 100%, meaning the model identified all true "Obese" cases (no false negatives).
+
+#### Conclusion:
+
+**Strengths**: The decision tree has performed perfectly with an accuracy of 100%. It correctly identified all cases of "Obese" (True Positives) and "Not Obese" (True Negatives) without any errors. The model has perfect sensitivity, specificity, precision, and negative predictive value.
+
+**Weaknesses**: Although the model shows exceptional performance here, it's important to note that this is a potentially overfit model. Perfect performance on the test set may indicate that the model is too specific to the training data, which could reduce its ability to generalize to unseen data.
+
+**Overall Performance**: The decision tree has shown remarkable performance, but caution is needed when interpreting the results, as this could indicate overfitting. Further steps like cross-validation, pruning, or hyperparameter tuning should be considered to validate its generalization capability.
+
+# 9. Model Comparison and Discussion
+
+In this project, we implemented and evaluated three classification models to predict obesity status: **Support Vector Machine (SVM)**, **Decision Tree**, and **Random Forest**.
+
+| **Model** | **Key Features** | **Accuracy** | **Strengths** |
+|------------------|------------------|------------------|------------------|
+| **Support Vector Machine (SVM)** | Uses Obesity rate, Shape\_\_Area, Shape\_\_Length; RBF kernel | 80% | Works well for non-linear decision boundaries; effective in high-dimensional spaces |
+| **Decision Tree** | Uses Obesity rate, Shape\_\_Area, Shape\_\_Length | 100% | Easy to interpret; handles both linear and non-linear relationships; no need for scaling |
+
+# 10. Conclusion:
+
+**Best Performance**: The **Decision Tree** showed perfect accuracy (100%) on the test data. While it is easy to interpret, this result may suggest that the model overfitted the training data. Further steps such as cross-validation or pruning could help assess its generalization power.
+
+**Most Robust**: **SVM** performed reasonably well with **80% accuracy**. While it did not outperform the Decision Tree, it is effective when there are non-linear relationships between features, which could be the case in some complex datasets.
+
+In conclusion, the **Decision Tree** offers an excellent performance with perfect accuracy but may be prone to over fitting. **SVM** could be considered as a good alternative, particularly when dealing with non-linear relationships in the data.
